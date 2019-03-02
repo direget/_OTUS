@@ -1,0 +1,115 @@
+--1 задание
+
+
+
+insert into [Purchasing].[Suppliers] 
+
+(SupplierName,
+
+ BankAccountName,
+
+ SupplierCategoryID,
+
+ PrimaryContactPersonID,
+
+ AlternateContactPersonID,
+
+ DeliveryCityID,
+
+ DeliveryPostalCode, 
+
+ PostalCityID, 
+
+ PostalPostalCode, 
+
+ PaymentDays, 
+
+ PhoneNumber,
+
+ FaxNumber, 
+
+ WebsiteURL, 
+
+ DeliveryAddressLine1, 
+
+ PostalAddressLine1, 
+
+ PostalAddressLine2,
+
+ LastEditedBy)
+
+VALUES
+
+('COCA', 'COCA COLA INC.', 1,20,28,15031,15151,15031,15151,7,'(847) 555-0100','(847) 555-0100','http://www.coca.com','Suite 10','PO Box 1039','SPB',1),
+
+('HP', 'HP LTD.', 1,20,26,13054,15231,13054,15231,14,'(847) 555-2100','(847) 555-2100','http://www.hph.com','Unit 2','PO Box 20290','New York',1),
+
+('Nestle', 'Nestle Inc.', 1,20,24,18565,42005,18565,42005,14,'(847) 555-3100','(847) 555-3100','http://www.nestlen.com','Unit 2','PO Box 8747','MOSCOW',1),
+
+('Bank Intesa Sanpaolo', 'Intesa Sanpaolo Inc.', 1,20,32,17162,25678,17162,25678,7,'(847) 555-4100','(847) 555-4100','http://www.mintesa.com','Level 3','PO Box 8747','Rome',1),
+
+('Novartis', 'Novartis Inc.', 1,20,34,30252,37772,30252,37772,14,'(847) 555-5100','(847) 555-5100','http://www.novar.com','Level 1','PO Box 8747','Bern',1)
+
+
+
+-- 2 задание
+
+
+
+DELETE FROM [Purchasing].[Suppliers] WHERE SupplierName='COCA'
+
+
+
+-- 3 задание
+
+
+
+update [Purchasing].[Suppliers] set PhoneNumber='+74957775533', WebsiteURL='https//:novartis.com' where SupplierName = 'Novartis'
+
+
+
+-- 4 задание
+
+
+
+merge into [Sales].[Customers] as sc
+
+using (select [CustomerID] from [Sales].[CustomerTransactions]) as sct
+
+on (sct.[CustomerID]=sc.[CustomerID])
+
+When matched then update set
+
+sc.[CustomerID]=sct.[CustomerID]
+
+When not matched by target then insert
+
+([CustomerID])
+
+Values (sct.[CustomerID])
+
+
+
+-- 5 задание
+
+--*BCP OUT*
+
+
+
+select * 
+
+from [Application].[Cities]
+
+
+
+exec master..xp_cmdshell 'bcp WideWorldImporters.Application.cities out d:\AppCities.txt -T -c'
+
+
+
+--*BULK INSERT*
+
+
+
+bulk insert Application.cities
+
+From d:\AppCities.txt
