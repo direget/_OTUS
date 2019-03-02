@@ -1,0 +1,64 @@
+--*1 задание*
+--1 вариант
+Select p.PersonID, p.FullName
+From Application.People p
+WHERE
+p.IsSalesperson=1 AND
+NOT EXISTS
+(Select 1 FROM Sales.Invoices i where p.PersonID=i.SalespersonPersonID);
+
+
+--*2 задание*
+--1 вариант
+SELECT StockItemID, StockItemName, UnitPrice 
+FROM Warehouse.StockItems
+WHERE UnitPrice <= ALL (SELECT UnitPrice 
+	FROM Warehouse.StockItems);
+
+--2 вариант
+SELECT StockItemID, 
+	StockItemName, 
+	UnitPrice
+FROM Warehouse.StockItems
+WHERE UnitPrice =
+(SELECT Min(UnitPrice) 
+	FROM Warehouse.StockItems)
+
+
+--*3 задание*
+--1 вариант
+SELECT Top 5 *
+FROM Sales.CustomerTransactions AS ct,
+(
+    SELECT sc.CustomerID, MIN(sc.TransactionAmount) AS TransactionAmount
+    FROM Sales.CustomerTransactions AS sc
+    GROUP BY sc.CustomerID
+) AS Amount
+WHERE ct.CustomerID = Amount.CustomerID
+ORDER BY ct.TransactionAmount Desc
+--2 вариант
+
+WITH MaxAmount AS 
+(
+	SELECT Top 5 ct.CustomerID, Max(ct.TransactionAmount) AS MaxAmount
+	FROM Sales.CustomerTransactions ct
+	GROUP BY ct.CustomerID
+)
+SELECT c.CustomerID, c.CustomerName, MA.MaxAmount
+FROM Sales.Customers c
+	JOIN MaxAmount AS MA
+		ON c.CustomerID = MA.CustomerID
+ORDER BY MA.MaxAmount desc;
+
+--*4 задание*
+SELECT 
+c.CityID,c.CityName,p.PreferredName
+From Sales.Orders so
+JOIN sales.OrderLines ol ON So.OrderID=ol.OrderID
+JOIN Application.People p ON so.PickedByPersonID = p.PersonID
+JOIN Sales.Customers sc ON sc.CustomerID=so.CustomerID
+JOIN Application.Cities c ON c.CityID=sc.PostalCityID
+WHERE ol.StockItemID IN 
+(SELECT TOP 3 StockItemID 
+From Warehouse.StockItems si
+ORDER BY si.UnitPrice desc)
