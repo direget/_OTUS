@@ -1,0 +1,65 @@
+use WideWorldImporters
+
+
+
+--1 задание
+
+select * from [Warehouse].[StockItems]
+
+Where StockItemName like 'Animal%' or StockItemName like '%urgent%'
+
+
+
+--2 задание
+
+Select SupplierNamE, SupplierCategoryName
+
+from [Purchasing].[Suppliers] as ps
+
+inner join [Purchasing].[PurchaseOrders] as ppo on ppo.SupplierID=ps.SupplierID
+
+inner join [Purchasing].[SupplierCategories] as psc on psc.[SupplierCategoryID]=ps.SupplierCategoryID
+
+Where IsOrderFinalized = 0
+
+
+
+--4 задание
+
+Select SupplierName, DeliveryMethodName, OrderDate, BankAccountName
+
+from [Purchasing].[Suppliers] as ps
+
+inner join [Purchasing].[PurchaseOrders] as ppo on ppo.SupplierID=ps.SupplierID
+
+inner join [Application].[DeliveryMethods] as adm on adm.DeliveryMethodID=ppo.DeliveryMethodID
+
+where (year(OrderDate)=2014) and (DeliveryMethodName='Road Freight' or DeliveryMethodName='Post')
+
+
+
+--5 задание
+
+select top 10 Description, InvoiceDate, ConfirmedReceivedBy, CustomerName
+
+from sales.Invoices as si
+
+inner join [sales].[Customers] as sc on sc.CustomerID=si.CustomerID
+
+inner join [Sales].OrderLines as sol on sol.OrderID=si.OrderID
+
+order by InvoiceDate desc
+
+
+
+--6 задание
+
+Select sc.CustomerID as [Номер_клиента], Description, CustomerName, PhoneNumber
+
+ from [Sales].[OrderLines] as sol
+
+ inner join [Sales].[Orders] as so on sol.OrderID=so.OrderID
+
+ inner join [Sales].Customers as sc on sc.CustomerID=so.CustomerID
+
+ where Description like '%Frogs%250g'
