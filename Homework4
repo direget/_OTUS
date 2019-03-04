@@ -27,18 +27,18 @@ WHERE UnitPrice =
 
 --*3 задание*
 --1 вариант
-SELECT Top 5 *
-FROM Sales.CustomerTransactions AS ct,
+SELECT *
+FROM Sales.Customers AS c
+Join 
 (
-    SELECT sc.CustomerID, MIN(sc.TransactionAmount) AS TransactionAmount
+    SELECT top 5 sc.CustomerID
     FROM Sales.CustomerTransactions AS sc
-    GROUP BY sc.CustomerID
-) AS Amount
-WHERE ct.CustomerID = Amount.CustomerID
-ORDER BY ct.TransactionAmount Desc
+order by sc.TransactionAmount desc) AS Amount
+on c.CustomerID = Amount.CustomerID
+
 --2 вариант
 
-WITH MaxAmount AS 
+;WITH MaxAmount AS 
 (
 	SELECT Top 5 ct.CustomerID, Max(ct.TransactionAmount) AS MaxAmount
 	FROM Sales.CustomerTransactions ct
