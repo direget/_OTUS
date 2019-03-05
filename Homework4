@@ -29,20 +29,20 @@ WHERE UnitPrice =
 --1 вариант
 SELECT *
 FROM Sales.Customers AS c
-Join 
+JOIN 
 (
-    SELECT top 5 sc.CustomerID
+    SELECT TOP 5 sc.CustomerID
     FROM Sales.CustomerTransactions AS sc
-order by sc.TransactionAmount desc) AS Amount
-on c.CustomerID = Amount.CustomerID
+ORDER BY sc.TransactionAmount desc) AS MaxAmount
+ON c.CustomerID = MaxAmount.CustomerID
 
 --2 вариант
 
 ;WITH MaxAmount AS 
 (
-	SELECT Top 5 ct.CustomerID, Max(ct.TransactionAmount) AS MaxAmount
-	FROM Sales.CustomerTransactions ct
-	GROUP BY ct.CustomerID
+	SELECT Top 5 sc.CustomerID, Max(sc.TransactionAmount) AS MaxAmount
+	FROM Sales.CustomerTransactions sc
+	GROUP BY sc.CustomerID
 )
 SELECT c.CustomerID, c.CustomerName, MA.MaxAmount
 FROM Sales.Customers c
