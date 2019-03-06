@@ -1,0 +1,36 @@
+--1 задание
+SELECT 
+MONTH(PickingCompletedWhen) AS 'MONTH',
+ YEAR(PickingCompletedWhen) AS 'YEAR',
+ SUM(so.Quantity*so.UnitPrice) AS TOTALSUM,
+ AVG(DISTINCT ws.UnitPrice) AS AVGPrice
+FROM Sales.OrderLines so
+JOIN Warehouse.StockItems ws ON ws.StockItemID=so.StockItemID
+WHERE YEAR(PickingCompletedWhen) = '2015'
+GROUP BY YEAR(PickingCompletedWhen),MONTH(PickingCompletedWhen)
+ORDER BY MONTH(PickingCompletedWhen) ASC;
+
+--2 задание
+
+SELECT 
+MONTH(PickingCompletedWhen) AS 'MONTH',
+ YEAR(PickingCompletedWhen) AS 'YEAR',
+ SUM(so.Quantity*so.UnitPrice) AS TOTALSUM
+FROM Sales.OrderLines so
+JOIN Warehouse.StockItems ws ON ws.StockItemID=so.StockItemID
+--WHERE (so.UnitPrice * so.Quantity)  > 10000
+GROUP BY YEAR(PickingCompletedWhen),MONTH(PickingCompletedWhen)
+HAVING SUM(so.Quantity*so.UnitPrice) > 10000;
+
+--3 задание
+
+SELECT so.StockItemID
+MONTH(PickingCompletedWhen) AS 'MONTH',
+ YEAR(PickingCompletedWhen) AS 'YEAR', 
+ SUM(so.Quantity*so.UnitPrice) AS TOTALSUM, 
+ MIN(so.PickingCompletedWhen),
+ SUM(so.Quantity)
+FROM Sales.OrderLines so
+JOIN Warehouse.StockItems ws ON ws.StockItemID=so.StockItemID
+GROUP BY YEAR(PickingCompletedWhen),MONTH(PickingCompletedWhen),so.StockItemID 
+HAVING  SUM(so.Quantity) < 50;
