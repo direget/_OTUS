@@ -1,92 +1,111 @@
 --1 задание
 --1 вариант
-SELECT sol.OrderLineID,
-sc.CustomerName,
-sol.PickingCompletedWhen,
-SUM(sil.Quantity*sil.UnitPrice)
-OVER (PARTITION	BY 
-sol.PickingCompletedWhen) 
-AS Total_Sum,
-SUM(sil.Quantity*sil.UnitPrice)
-OVER (PARTITION	BY sol.OrderLineID, sc.CustomerName
-ORDER BY sol.PickingCompletedWhen
-ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS Total_Sum2
-FROM Sales.InvoiceLines sil
-JOIN Sales.Invoices si ON sil.InvoiceID	=si.InvoiceID
-JOIN Sales.Customers sc ON sc.CustomerID=si.CustomerID
-JOIN Sales.OrderLines sol ON sol.OrderID=si.OrderID	
-JOIN Sales.OrderLines sol2 ON sol2.OrderLineID=sol.OrderLineID
-WHERE
-sol.PickingCompletedWhen>='2015-01-01'
-AND
-Month(sol.PickingCompletedWhen)>=Month(sol2.PickingCompletedWhen)
-GROUP BY sol.OrderLineID,
-sc.CustomerName,
-sol.PickingCompletedWhen,
-(sil.Quantity*sil.UnitPrice)
-ORDER BY
-sol.PickingCompletedWhen ASC;
+SELECT
+ sol.OrderLineID,
+ sc.CustomerName,
+ SUM(sol.Quantity*sol.UnitPrice) 
+ OVER (PARTITION BY MONTH(sol.PickingCompletedWhen) 
+  ORDER BY MONTH(sol.PickingCompletedWhen)
+  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS TOTAL_SUM,
+MONTH(sol.PickingCompletedWhen) AS [Month]
+FROM Sales.OrderLines sol
+JOIN Sales.Orders AS so 
+ON sol.OrderID=so.OrderID
+JOIN Sales.Customers AS sc 
+ON sc.CustomerID=so.CustomerID
+WHERE sol.PickingCompletedWhen>='2015-01-01';
 
 --2 вариант
-SELECT sol.OrderLineID,
-sc.CustomerName,
-sol.PickingCompletedWhen,
-Sum(sil.Quantity*sil.UnitPrice) AS Total_Sum
-FROM Sales.InvoiceLines sil
-JOIN Sales.Invoices si ON sil.InvoiceID	=si.InvoiceID
-JOIN Sales.Customers sc ON sc.CustomerID=si.CustomerID
-JOIN Sales.OrderLines sol ON sol.OrderID=si.OrderID	
-JOIN Sales.OrderLines sol2 ON sol2.OrderLineID=sol.OrderLineID
-GROUP BY sol.OrderLineID,
-sc.CustomerName,
-sol.PickingCompletedWhen,
-(sil.Quantity*sil.UnitPrice)
+
+SELECT
+ sol.OrderLineID,
+ sc.CustomerName,
+ MONTH(sol.PickingCompletedWhen) AS [Month],
+	 (SELECT
+	 SUM(sol2.Quantity*sol2.UnitPrice) 
+	 FROM Sales.OrderLines sol2
+	 WHERE MONTH(sol2.PickingCompletedWhen)<=MONTH(sol.PickingCompletedWhen)
+	 AND
+	 sol2.PickingCompletedWhen>='2015-01-01') as TOTAL_SUM
+FROM Sales.OrderLines sol
+JOIN Sales.Orders AS so 
+ON sol.OrderID=so.OrderID
+JOIN Sales.Customers AS sc 
+ON sc.CustomerID=so.CustomerID
+WHERE sol.PickingCompletedWhen>='2015-01-01'
 ORDER BY sol.PickingCompletedWhen ASC;
 
 --2 задание
-
-SELECT Distinct topsi.StockItemID, 
-topSI.StockItemName, 
-month(topSI.Date_order) AS [Month], topSI.PickingCompletedWhen, topSI.Quantity
-FROM
-(
-  SELECT 
+;WITH  
+topSI
+ AS
+(SELECT
   sol.StockItemID, 
-  wsi.StockItemName, 
-  ROW_NUMBER () OVER (PARTITION BY sol.StockItemID, sol.PickingCompletedWhen ORDER BY Count(sol.Quantity) DESC) AS Date_order,
+  ROW_NUMBER () OVER (PARTITION BY MONTH(so.OrderDate) ORDER BY COUNT(sol.Quantity) DESC) AS Date_order,
   sol.Quantity,
-  sol.PickingCompletedWhen
+  so.OrderDate,
+  MONTH(so.OrderDate) AS [MONTH]
   FROM sales.OrderLines sol
-  JOIN Warehouse.StockItems wsi ON wsi.StockItemID=sol.StockItemID
-  JOIN Sales.Orders so ON sol.OrderID=so.OrderID
-  JOIN Sales.OrderLines sol2 ON sol.OrderLineID=sol2.OrderLineID
-  WHERE YEAR(so.OrderDate)='2016' 
-  AND Month(sol.PickingCompletedWhen)>=Month(sol2.PickingCompletedWhen)
-  GROUP BY sol.PickingCompletedWhen, sol.StockItemID, wsi.StockItemName, so.OrderDate, sol.Quantity
- ) topSI
-WHERE Date_order=2
-ORDER BY topsi.StockItemID, 
-topSI.StockItemName, 
-month(topSI.Date_order), 
-topSI.PickingCompletedWhen, 
-topSI.Quantity ASC;
+  JOIN Warehouse.StockItems wsi 
+  ON wsi.StockItemID=sol.StockItemID
+  JOIN Sales.Orders so 
+  ON sol.OrderID=so.OrderID
+  GROUP BY sol.StockItemID, sol.Quantity, so.OrderDate, MONTH(so.OrderDate)
+ )
+SELECT *
+FROM topSI
+WHERE Date_order<=2
+AND
+YEAR(topSI.OrderDate)='2016'
+ORDER BY topSI.OrderDate, topSI.Quantity ASC;
 
 --3 задание
-
-SELECT wsi.StockItemID, wsi.StockItemName, wsi.UnitPrice,
-ROW_NUMBER() OVER (PARTITION BY LEFT(wsi.StockItemName,1) order by wsi.StockItemName) as ROW_STOCKNAME, 
-Count(*)OVER(),
-Count(*)OVER(PARTITION	BY LEFT(wsi.StockItemName,1)),
+SELECT * 
+FROM(
+SELECT wsi.StockItemID, wsi.StockItemName, wsi.UnitPrice, wsi.TypicalWeightPerUnit,
+ROW_NUMBER() OVER (PARTITION BY LEFT(wsi.StockItemName,1) ORDER BY wsi.StockItemName) AS ROW_STOCKNAME, 
+COUNT(*)OVER(),
+COUNT(*)OVER(PARTITION	BY LEFT(wsi.StockItemName,1)),
 LAG(wsi.StockItemID)OVER (ORDER BY wsi.StockItemName),
-LAG(wsi.StockItemName,2,'No Items') OVER (ORDER BY wsi.StockItemName)
-FROM [Warehouse].[StockItems] wsi;
+LAG(wsi.StockItemName,2,'No Items') OVER (ORDER BY wsi.StockItemName),
+ROW_NUMBER() OVER (PARTITION BY wsi.TypicalWeightPerUnit ORDER BY wsi.StockItemName) AS ROW_WEIGHT
+FROM Warehouse.StockItems wsi
+GROUP BY wsi.StockItemID) AS A
+WHERE A.ROW_WEIGHT<=30;
+
 
 --4 задание
-
-SELECT ap.FullName, LTRIM(RTRIM(SUBSTRING(ap.FullName, CHARINDEX(' ', ap.FullName)+1, 8000)))As LastName, si.SalespersonPersonID, si.CustomerID, sc.CustomerName, max(sol.PickingCompletedWhen), (sol.Quantity*sol.UnitPrice) AS TOTALSALE
+SELECT ap.FullName, 
+LAST_VALUE(sc.CustomerName) OVER (PARTITION BY ap.FullName ORDER BY ap.FullName) AS lsv, 
+si.SalespersonPersonID, 
+si.CustomerID, 
+sc.CustomerName, 
+sol.PickingCompletedWhen, 
+(sol.Quantity*sol.UnitPrice) AS TOTALSALE
 FROM Sales.Invoices si
 JOIN Application.People ap ON ap.PersonID = si.SalespersonPersonID
 JOIN Sales.Customers sc ON sc.CustomerID = si.CustomerID
 JOIN Sales.OrderLines sol ON sol.OrderID = si.OrderID
-GROUP BY ap.FullName, LTRIM(RTRIM(SUBSTRING(ap.FullName, CHARINDEX(' ', ap.FullName)+1, 8000))), si.CustomerID, sc.CustomerName, si.SalespersonPersonID, ap.PreferredName, sol.PickingCompletedWhen, (sol.Quantity*sol.UnitPrice)
+GROUP BY ap.FullName, si.CustomerID, sc.CustomerName, si.SalespersonPersonID, ap.PreferredName, sol.PickingCompletedWhen, (sol.Quantity*sol.UnitPrice)
 ORDER BY sol.PickingCompletedWhen DESC;
+
+--5 задание
+SELECT *
+FROM
+(SELECT 
+sc.CustomerID, 
+sc.CustomerName,
+wsi.StockItemID,
+ROW_NUMBER () OVER (PARTITION BY MAX(sol.UnitPrice) ORDER BY sc.CustomerID DESC) AS MaxUnitPrice,
+sol.UnitPrice,
+sol.PickingCompletedWhen
+FROM Sales.OrderLines sol
+  JOIN Sales.Orders so 
+  ON sol.OrderID=so.OrderID
+  JOIN Sales.Customers sc
+  ON sc.CustomerID = so.CustomerID
+  JOIN Warehouse.StockItems wsi
+  ON wsi.StockItemID = sol.StockItemID
+GROUP BY sc.CustomerID, sc.CustomerName, wsi.StockItemID, sol.UnitPrice, sol.PickingCompletedWhen)
+AS A
+WHERE A.MaxUnitPrice <=2;
