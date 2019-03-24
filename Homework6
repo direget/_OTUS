@@ -3,10 +3,10 @@
 SELECT
  sol.OrderLineID,
  sc.CustomerName,
+ sol.PickingCompletedWhen,
  SUM(sol.Quantity*sol.UnitPrice) 
- OVER (PARTITION BY MONTH(sol.PickingCompletedWhen) 
-  ORDER BY MONTH(sol.PickingCompletedWhen)
-  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS TOTAL_SUM,
+ OVER (PARTITION BY YEAR(sol.PickingCompletedWhen) 
+  ORDER BY MONTH(sol.PickingCompletedWhen)) AS SaleAmountbyMonth,
 MONTH(sol.PickingCompletedWhen) AS [Month]
 FROM Sales.OrderLines sol
 JOIN Sales.Orders AS so 
@@ -17,64 +17,68 @@ WHERE sol.PickingCompletedWhen>='2015-01-01';
 
 --2 вариант
 
-SELECT
+SELECT 
  sol.OrderLineID,
+ sol.PickingCompletedWhen,
  sc.CustomerName,
- MONTH(sol.PickingCompletedWhen) AS [Month],
-	 (SELECT
-	 SUM(sol2.Quantity*sol2.UnitPrice) 
-	 FROM Sales.OrderLines sol2
-	 WHERE MONTH(sol2.PickingCompletedWhen)<=MONTH(sol.PickingCompletedWhen)
-	 AND
-	 sol2.PickingCompletedWhen>='2015-01-01') as TOTAL_SUM
-FROM Sales.OrderLines sol
-JOIN Sales.Orders AS so 
-ON sol.OrderID=so.OrderID
-JOIN Sales.Customers AS sc 
-ON sc.CustomerID=so.CustomerID
-WHERE sol.PickingCompletedWhen>='2015-01-01'
-ORDER BY sol.PickingCompletedWhen ASC;
+ (SELECT  
+ SUM(sol2.Quantity*sol2.UnitPrice)
+ FROM Sales.OrderLines sol2
+ WHERE sol2.PickingCompletedWhen >= '2015-01-01'
+ AND 
+ /*функция eomonth не работает должным образом*/
+ Month(sol2.PickingCompletedWhen)<=Month(sol.PickingCompletedWhen)
+ AND
+ sol2.OrderLineID=sol.OrderLineID
+ AND sol2.PickingCompletedWhen IS NOT NULL
+ ) AS SaleAmount
+  FROM Sales.OrderLines sol
+  JOIN Sales.Orders AS so
+  ON sol.OrderID=so.OrderID
+  JOIN Sales.Customers AS sc 
+  ON sc.CustomerID=so.CustomerID
+  GROUP BY sol.OrderLineID, sc.CustomerName, sol.PickingCompletedWhen, (sol.Quantity*sol.UnitPrice)
+  ORDER BY sol.PickingCompletedWhen DESC;
 
 --2 задание
-;WITH  
-topSI
- AS
-(SELECT
+
+SELECT topsi.StockItemID, 
+topSI.StockItemName, 
+topSI.Date_order,
+topSI.PickingCompletedWhen
+FROM
+(
+  SELECT 
   sol.StockItemID, 
-  ROW_NUMBER () OVER (PARTITION BY MONTH(so.OrderDate) ORDER BY COUNT(sol.Quantity) DESC) AS Date_order,
+  wsi.StockItemName, 
+  ROW_NUMBER () OVER (PARTITION BY  MONTH(sol.PickingCompletedWhen) ORDER BY Count(sol.Quantity) DESC) AS Date_order,
   sol.Quantity,
-  so.OrderDate,
-  MONTH(so.OrderDate) AS [MONTH]
-  FROM sales.OrderLines sol
-  JOIN Warehouse.StockItems wsi 
-  ON wsi.StockItemID=sol.StockItemID
-  JOIN Sales.Orders so 
-  ON sol.OrderID=so.OrderID
-  GROUP BY sol.StockItemID, sol.Quantity, so.OrderDate, MONTH(so.OrderDate)
- )
-SELECT *
-FROM topSI
-WHERE Date_order<=2
-AND
-YEAR(topSI.OrderDate)='2016'
-ORDER BY topSI.OrderDate, topSI.Quantity ASC;
+  sol.PickingCompletedWhen
+  FROM Sales.OrderLines sol
+  JOIN Warehouse.StockItems wsi ON wsi.StockItemID=sol.StockItemID
+  JOIN Sales.Orders so ON sol.OrderID=so.OrderID
+  JOIN Sales.OrderLines sol2 ON sol.OrderLineID=sol2.OrderLineID
+  WHERE YEAR(so.OrderDate)='2016' 
+  AND MONTH(sol.PickingCompletedWhen)<=MONTH(sol2.PickingCompletedWhen)
+  GROUP BY sol.PickingCompletedWhen, sol.StockItemID, wsi.StockItemName, sol.Quantity
+  ) topSI
+WHERE topSI.Date_order<=2;
 
 --3 задание
-SELECT * 
-FROM(
-SELECT wsi.StockItemID, wsi.StockItemName, wsi.UnitPrice, wsi.TypicalWeightPerUnit,
-ROW_NUMBER() OVER (PARTITION BY LEFT(wsi.StockItemName,1) ORDER BY wsi.StockItemName) AS ROW_STOCKNAME, 
-COUNT(*)OVER(),
-COUNT(*)OVER(PARTITION	BY LEFT(wsi.StockItemName,1)),
-LAG(wsi.StockItemID)OVER (ORDER BY wsi.StockItemName),
-LAG(wsi.StockItemName,2,'No Items') OVER (ORDER BY wsi.StockItemName),
-ROW_NUMBER() OVER (PARTITION BY wsi.TypicalWeightPerUnit ORDER BY wsi.StockItemName) AS ROW_WEIGHT
-FROM Warehouse.StockItems wsi
-GROUP BY wsi.StockItemID) AS A
-WHERE A.ROW_WEIGHT<=30;
 
+SELECT wsi.StockItemID, wsi.StockItemName, wsi.Brand, wsi.UnitPrice, wsi.TypicalWeightPerUnit,
+ROW_NUMBER() OVER (PARTITION BY LEFT(wsi.StockItemName,1) ORDER BY wsi.StockItemName) AS Row_Stockname, 
+COUNT(*)OVER() AS All_Count,
+COUNT(*)OVER(PARTITION BY LEFT(wsi.StockItemName,1)) AS Count_of_left_symbol,
+LAG(wsi.StockItemID) OVER (ORDER BY wsi.StockItemName) AS Next_ID,
+LAG(wsi.StockItemName,2,'No Items') OVER (ORDER BY wsi.StockItemName) AS Desc_Name,
+ROW_NUMBER() OVER (PARTITION BY wsi.TypicalWeightPerUnit ORDER BY wsi.StockItemName) AS Row_Group,
+NTILE(30) OVER (PARTITION BY wsi.TypicalWeightPerUnit ORDER BY wsi.TypicalWeightPerUnit) AS Number_Group
+FROM Warehouse.StockItems wsi
+GROUP BY wsi.StockItemID, wsi.StockItemName, wsi.Brand, wsi.UnitPrice, wsi.TypicalWeightPerUnit;
 
 --4 задание
+
 SELECT ap.FullName, 
 LAST_VALUE(sc.CustomerName) OVER (PARTITION BY ap.FullName ORDER BY ap.FullName) AS lsv, 
 si.SalespersonPersonID, 
@@ -86,17 +90,19 @@ FROM Sales.Invoices si
 JOIN Application.People ap ON ap.PersonID = si.SalespersonPersonID
 JOIN Sales.Customers sc ON sc.CustomerID = si.CustomerID
 JOIN Sales.OrderLines sol ON sol.OrderID = si.OrderID
-GROUP BY ap.FullName, si.CustomerID, sc.CustomerName, si.SalespersonPersonID, ap.PreferredName, sol.PickingCompletedWhen, (sol.Quantity*sol.UnitPrice)
+GROUP BY ap.FullName, si.SalespersonPersonID, si.CustomerID, sc.CustomerName, sol.PickingCompletedWhen, (sol.Quantity*sol.UnitPrice)
 ORDER BY sol.PickingCompletedWhen DESC;
 
+
 --5 задание
+
 SELECT *
 FROM
 (SELECT 
 sc.CustomerID, 
 sc.CustomerName,
 wsi.StockItemID,
-ROW_NUMBER () OVER (PARTITION BY MAX(sol.UnitPrice) ORDER BY sc.CustomerID DESC) AS MaxUnitPrice,
+ROW_NUMBER () OVER (PARTITION BY sc.CustomerID ORDER BY MAX(sol.UnitPrice) DESC) AS MaxUnitPrice,
 sol.UnitPrice,
 sol.PickingCompletedWhen
 FROM Sales.OrderLines sol
