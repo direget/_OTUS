@@ -9,36 +9,28 @@ SELECT
   ORDER BY MONTH(sol.PickingCompletedWhen)) AS SaleAmountbyMonth,
 MONTH(sol.PickingCompletedWhen) AS [Month]
 FROM Sales.OrderLines sol
-JOIN Sales.Orders AS so 
-ON sol.OrderID=so.OrderID
-JOIN Sales.Customers AS sc 
-ON sc.CustomerID=so.CustomerID
+JOIN Sales.Orders AS so ON sol.OrderID=so.OrderID
+JOIN Sales.Customers AS sc ON sc.CustomerID=so.CustomerID
 WHERE sol.PickingCompletedWhen>='2015-01-01';
 
 --2 вариант
 
-SELECT 
- sol.OrderLineID,
- sol.PickingCompletedWhen,
- sc.CustomerName,
- (SELECT  
- SUM(sol2.Quantity*sol2.UnitPrice)
- FROM Sales.OrderLines sol2
- WHERE sol2.PickingCompletedWhen >= '2015-01-01'
- AND 
- /*функция eomonth не работает должным образом*/
- Month(sol2.PickingCompletedWhen)<=Month(sol.PickingCompletedWhen)
- AND
- sol2.OrderLineID=sol.OrderLineID
- AND sol2.PickingCompletedWhen IS NOT NULL
- ) AS SaleAmount
-  FROM Sales.OrderLines sol
-  JOIN Sales.Orders AS so
-  ON sol.OrderID=so.OrderID
-  JOIN Sales.Customers AS sc 
-  ON sc.CustomerID=so.CustomerID
-  GROUP BY sol.OrderLineID, sc.CustomerName, sol.PickingCompletedWhen, (sol.Quantity*sol.UnitPrice)
-  ORDER BY sol.PickingCompletedWhen DESC;
+SELECT
+sol.OrderLineID,
+sc.CustomerName,
+sol.PickingCompletedWhen,
+(SELECT 
+SUM(sol2.Quantity*sol2.UnitPrice)
+FROM Sales.OrderLines sol2
+WHERE sol2.PickingCompletedWhen >= '2015-01-01'
+AND sol2.PickingCompletedWhen<=EOMONTH(sol.PickingCompletedWhen)
+) AS SaleAmount,
+MONTH(sol.PickingCompletedWhen) AS [Month]
+FROM Sales.OrderLines sol
+JOIN Sales.Orders AS so ON sol.OrderID=so.OrderID
+JOIN Sales.Customers AS sc ON sc.CustomerID=so.CustomerID
+WHERE sol.PickingCompletedWhen>='2015-01-01'
+ORDER BY sol.PickingCompletedWhen, OrderLineID;
 
 --2 задание
 
@@ -70,9 +62,8 @@ SELECT wsi.StockItemID, wsi.StockItemName, wsi.Brand, wsi.UnitPrice, wsi.Typical
 ROW_NUMBER() OVER (PARTITION BY LEFT(wsi.StockItemName,1) ORDER BY wsi.StockItemName) AS Row_Stockname, 
 COUNT(*)OVER() AS All_Count,
 COUNT(*)OVER(PARTITION BY LEFT(wsi.StockItemName,1)) AS Count_of_left_symbol,
-LAG(wsi.StockItemID) OVER (ORDER BY wsi.StockItemName) AS Next_ID,
+LEAD(wsi.StockItemID) OVER (ORDER BY wsi.StockItemName) AS Next_ID,
 LAG(wsi.StockItemName,2,'No Items') OVER (ORDER BY wsi.StockItemName) AS Desc_Name,
-ROW_NUMBER() OVER (PARTITION BY wsi.TypicalWeightPerUnit ORDER BY wsi.StockItemName) AS Row_Group,
 NTILE(30) OVER (PARTITION BY wsi.TypicalWeightPerUnit ORDER BY wsi.TypicalWeightPerUnit) AS Number_Group
 FROM Warehouse.StockItems wsi
 GROUP BY wsi.StockItemID, wsi.StockItemName, wsi.Brand, wsi.UnitPrice, wsi.TypicalWeightPerUnit;
@@ -80,7 +71,7 @@ GROUP BY wsi.StockItemID, wsi.StockItemName, wsi.Brand, wsi.UnitPrice, wsi.Typic
 --4 задание
 
 SELECT ap.FullName, 
-LAST_VALUE(sc.CustomerName) OVER (PARTITION BY ap.FullName ORDER BY ap.FullName) AS lsv, 
+LAST_VALUE(sc.CustomerName) OVER (PARTITION BY ap.FullName ORDER BY ap.FullName RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) AS lsv, 
 si.SalespersonPersonID, 
 si.CustomerID, 
 sc.CustomerName, 
@@ -102,16 +93,12 @@ FROM
 sc.CustomerID, 
 sc.CustomerName,
 wsi.StockItemID,
-ROW_NUMBER () OVER (PARTITION BY sc.CustomerID ORDER BY MAX(sol.UnitPrice) DESC) AS MaxUnitPrice,
+ROW_NUMBER () OVER (PARTITION BY sc.CustomerID ORDER BY sol.UnitPrice DESC) AS MaxUnitPrice,
 sol.UnitPrice,
 sol.PickingCompletedWhen
 FROM Sales.OrderLines sol
-  JOIN Sales.Orders so 
-  ON sol.OrderID=so.OrderID
-  JOIN Sales.Customers sc
-  ON sc.CustomerID = so.CustomerID
-  JOIN Warehouse.StockItems wsi
-  ON wsi.StockItemID = sol.StockItemID
-GROUP BY sc.CustomerID, sc.CustomerName, wsi.StockItemID, sol.UnitPrice, sol.PickingCompletedWhen)
+  JOIN Sales.Orders so ON sol.OrderID=so.OrderID
+  JOIN Sales.Customers sc ON sc.CustomerID = so.CustomerID
+  JOIN Warehouse.StockItems wsi ON wsi.StockItemID = sol.StockItemID)
 AS A
 WHERE A.MaxUnitPrice <=2;
